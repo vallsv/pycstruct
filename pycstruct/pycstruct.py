@@ -1135,6 +1135,9 @@ class Instance():
     else:
       raise AttributeError('Instance has no element {}'.format(item))
 
+  def __getitem__(self, item):
+    return self.__getattr__(item)
+
   def __bytes__(self):
     return bytes(self.__buffer)
   
@@ -1172,9 +1175,9 @@ class _InstanceList():
   
   def _check_key(self, key):
     if not isinstance(key, int):
-      raise KeyError('Invalid index: {} - needs to be an integer'.format(key))
+      raise IndexError('Invalid index: {} - needs to be an integer'.format(key))
     if key < 0 or key >= self.__length:
-      raise KeyError('Invalid index: {} - supported 0 - {}'.format(key, self.__length))
+      raise IndexError('Invalid index: {} - supported 0 - {}'.format(key, self.__length))
 
   def __getitem__(self, key):
     self._check_key(key)
@@ -1191,6 +1194,10 @@ class _InstanceList():
                                       self.__buffer_offset, key)
     else:
       raise AttributeError('You are not allowed to replace object. Use object properties.')
+
+  def __iter__(self):
+      for i in range(0, self.__length):
+          yield self[i]
 
   def __len__(self):
     return self.__length
