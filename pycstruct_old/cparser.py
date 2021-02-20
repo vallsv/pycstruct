@@ -5,8 +5,9 @@
 # file that should have been included as part of this package.
 
 import xml.etree.ElementTree as ET
-import os, logging, pycstruct, subprocess, shutil, hashlib, tempfile, math
+import os, logging, pycstruct_old, subprocess, shutil, hashlib, tempfile, math
 
+pycstruct = pycstruct_old
 
 ###############################################################################
 # Global constants

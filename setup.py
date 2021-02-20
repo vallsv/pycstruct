@@ -6,7 +6,7 @@ try:
 except:
       long_description = ""
 
-setup(name='pycstruct',
+setup(name='pycstruct_old',
       version='0.7.0',
       description='Binary data handling in Python using dictionaries',
       long_description=long_description,
@@ -21,7 +21,7 @@ setup(name='pycstruct',
       author_email='joel.midstjarna@gmail.com',
       keywords = ['struct', 'enum', 'bitfield', 'binary', 'protocol', 'dict', 'dictionary'], 
       license='MIT',
-      packages=['pycstruct'],
+      packages=['pycstruct_old'],
       zip_safe=False,
       classifiers=[
       'Development Status :: 3 - Alpha',  
