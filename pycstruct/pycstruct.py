@@ -1178,37 +1178,50 @@ class Instance():
     super().__setattr__('_Instance__attributes', type._element_names())
     super().__setattr__('_Instance__subinstances', {})
 
+  def _init_attribute(self, name):
+    attr = self.__subinstances.get(name)
+    if attr is not None:
+      return attr
+    if name not in self.__attributes:
+      raise AttributeError('Instance has no element {}'.format(name))
+
+    type = self.__type
+    buffer_offset = self.__buffer_offset
     if isinstance(type, StructDef):
       # Create "sub-instances" for nested structs/bitfields and lists
-      for attribute in self.__attributes:
-        length = type._element_length(attribute)
-        if length > 1:
-          # This is a list
-          self.__subinstances[attribute] = _InstanceList(type, attribute, 
-                   self.__buffer, buffer_offset)
+      field = type._field(name)
+      if field is None:
+        raise AttributeError('You are not allowed to modify {}'.format(name))
+      if field.length > 1:
+        # This is a list
+        attr = _InstanceList(type, name, self.__buffer, buffer_offset)
+      else:
+        if isinstance(field.type, (StructDef, BitfieldDef)):
+          attr = Instance(field.type, self.__buffer, buffer_offset + field.offset)
         else:
-          subtype = type._element_type(attribute)
-          if isinstance(subtype, StructDef) or isinstance(subtype, BitfieldDef):
-            self.__subinstances[attribute] = Instance(subtype, self.__buffer, 
-                          buffer_offset + type._element_offset(attribute))
+          attr = False
+    else:
+      attr = False
+    self.__subinstances[name] = attr
+    return attr
 
   def __getattr__(self, item):
-    if item in self.__subinstances:
-      return self.__subinstances[item]
-    elif item in self.__attributes:
-      return self.__type._deserialize_element(item, self.__buffer, 
+    attr = self._init_attribute(item)
+    if attr is False:
+      value = self.__type._deserialize_element(item, self.__buffer,
                                       self.__buffer_offset)
+      return value
     else:
-      raise AttributeError('Instance has no element {}'.format(item))
+      super().__setattr__(item, attr)
+      return attr
 
   def __setattr__(self, item, value):
-    if item in self.__subinstances:
+    attr = self._init_attribute(item)
+    if attr is not False:
       raise AttributeError('You are not allowed to modify {}'.format(item))
-    elif item in self.__attributes:
+    else:
       self.__type._serialize_element(item, value, self.__buffer, 
                                       self.__buffer_offset)
-    else:
-      raise AttributeError('Instance has no element {}'.format(item))
 
   def __bytes__(self):
     return bytes(self.__buffer)
@@ -1216,13 +1229,13 @@ class Instance():
   def __str__(self, prefix = ''):
     result = []
     for attribute in self.__attributes:
-      if attribute in self.__subinstances:
-        if isinstance(self.__subinstances[attribute], _InstanceList):
-          result.append(self.__subinstances[attribute].__str__('{}{} : '.format(prefix,attribute)))
-        else:
-          result.append(self.__subinstances[attribute].__str__('{}{}.'.format(prefix,attribute)))
-      else:
+      subinstance = self._init_attribute(attribute)
+      if subinstance is False:
         result.append('{}{} : {}'.format(prefix, attribute, self.__getattr__(attribute)))
+      elif isinstance(subinstance, _InstanceList):
+        result.append(subinstance.__str__('{}{} : '.format(prefix,attribute)))
+      else:
+        result.append(subinstance.__str__('{}{}.'.format(prefix,attribute)))
     return '\n'.join(result)
 
 class _InstanceList():
