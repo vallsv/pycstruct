@@ -4,7 +4,7 @@
 # released under the "MIT License Agreement". Please see the LICENSE
 # file that should have been included as part of this package.
 
-import struct, collections, math, sys
+import struct, collections, math, sys, typing
 
 ###############################################################################
 # Global constants
@@ -173,6 +173,14 @@ class StringDef(BaseDef):
 ###############################################################################
 # StructDef Class
 
+class _StructField(typing.NamedTuple):
+    """Hold metadata per field for structure"""
+    type: BaseDef
+    length: int
+    same_level: bool
+    offset: int
+
+
 class StructDef(BaseDef):
   """This class represents a struct or a union definition
 
@@ -204,9 +212,8 @@ class StructDef(BaseDef):
 
     # Add end padding of 0 size
     self.__pad_byte = BasicTypeDef('uint8', default_byteorder)
-    self.__pad_end = {'type' : self.__pad_byte, 'length' : 0, 
-                      'same_level' : False, 'offset' : 0}
-  
+    self.__pad_end = _StructField(self.__pad_byte, 0, False, 0)
+
   def add(self, type, name, length = 1, byteorder = '', same_level = False):
     """Add a new element in the struct/union definition. The element will be added 
        directly after the previous element if a struct or in parallel with the
@@ -319,24 +326,20 @@ class StructDef(BaseDef):
       offset = self.size()
       padding = _get_padding(self.__alignment, self.size(), type._largest_member())
       if padding > 0:
-        self.__fields['__pad_{0}'.format(self.__pad_count)] = \
-          {'type' : self.__pad_byte, 'length' : padding, 'same_level' : False,
-          'offset' : offset }
+        self.__fields['__pad_{0}'.format(self.__pad_count)] = _StructField(
+          self.__pad_byte, padding, False, offset)
         offset += padding
         self.__pad_count += 1
 
     # Add the element
-    self.__fields[name] = { 'type' : type, 'length' : length, 
-                            'same_level' : same_level, 
-                            'offset' : offset }
+    self.__fields[name] = _StructField(type, length, same_level, offset)
 
     # Check if end padding is required
     padding = _get_padding(self.__alignment, self.size(), self._largest_member())
     if padding > 0:
       offset += length * type.size()
-      self.__pad_end['length'] = padding
+      self.__pad_end = _StructField(self.__pad_end.type, padding, self.__pad_end.same_level, offset)
       self.__fields['__pad_end'] = self.__pad_end
-      self.__fields['__pad_end']['offset'] = offset
     
     # If same_level, store the bitfield elements
     if same_level:
@@ -353,12 +356,12 @@ class StructDef(BaseDef):
     all_elem_size = 0
     largest_size = 0
     for name, field in self.__fields.items():
-      elem_size = field['length'] * field['type'].size()
+      elem_size = field.length * field.type.size()
       if  not name.startswith('__pad') and elem_size > largest_size:
         largest_size = elem_size
       all_elem_size += elem_size
     if self.__union:
-      return largest_size +  self.__pad_end['length'] # Union
+      return largest_size +  self.__pad_end.length # Union
     return all_elem_size # Struct
 
   def _largest_member(self):
@@ -369,7 +372,7 @@ class StructDef(BaseDef):
     """
     largest = 0
     for field in self.__fields.values():
-      l = field['type']._largest_member()
+      l = field.type._largest_member()
       if l > largest:
         largest = l
     
@@ -392,7 +395,7 @@ class StructDef(BaseDef):
       if not name.startswith('__pad'):
         length = 1
         if name in self.__fields:
-          length = self.__fields[name]['length']
+          length = self.__fields[name].length
         if length > 1:
           # This is a list (array)
           l = []
@@ -421,13 +424,13 @@ class StructDef(BaseDef):
     if name in self.__fields_same_level:
       # This is a bitfield on same level
       field = self.__fields[self.__fields_same_level[name]]
-      bitfield = field['type']
-      return bitfield._deserialize_element(name, buffer, buffer_offset + field['offset'])
+      bitfield = field.type
+      return bitfield._deserialize_element(name, buffer, buffer_offset + field.offset)
 
     field = self.__fields[name]
-    datatype = field['type']
-    length = field['length']
-    offset = field['offset']
+    datatype = field.type
+    length = field.length
+    offset = field.offset
     datatype_size = datatype.size()
 
     next_offset = buffer_offset + offset + index * datatype_size
@@ -461,7 +464,7 @@ class StructDef(BaseDef):
       if name in data and not name.startswith('__pad'):
         length = 1
         if name in self.__fields:
-          length = self.__fields[name]['length']
+          length = self.__fields[name].length
         if length > 1:
           # This is a list (array)
           if not isinstance(data[name], collections.abc.Iterable):
@@ -494,14 +497,14 @@ class StructDef(BaseDef):
     if name in self.__fields_same_level:
       # This is a bitfield on same level
       field = self.__fields[self.__fields_same_level[name]]
-      bitfield = field['type']
-      bitfield._serialize_element(name, value, buffer, buffer_offset + field['offset'])
+      bitfield = field.type
+      bitfield._serialize_element(name, value, buffer, buffer_offset + field.offset)
       return # We are done
 
     field = self.__fields[name]
-    datatype = field['type']
-    length = field['length']
-    offset = field['offset']
+    datatype = field.type
+    length = field.length
+    offset = field.offset
     datatype_size = datatype.size()
 
     next_offset = buffer_offset + offset + index * datatype_size
@@ -547,12 +550,12 @@ class StructDef(BaseDef):
     """
     result = []
     result.append('{:<30}{:<15}{:<10}{:<10}{:<10}{:<10}'.format(
-      'Name','Type', 'Size','Length','Offset','Largest type'))
+      'Name', 'Type', 'Size', 'Length', 'Offset', 'Largest type'))
     for name, field in self.__fields.items():
-      type = field['type']
+      type = field.type
       result.append('{:<30}{:<15}{:<10}{:<10}{:<10}{:<10}'.format(
-        name,type._type_name(), type.size(),field['length'], 
-        field['offset'],type._largest_member()))
+        name, type._type_name(), type.size(),field.length,
+        field.offset, type._largest_member()))
     return '\n'.join(result)
 
   def _type_name(self):
@@ -597,9 +600,10 @@ class StructDef(BaseDef):
     if (len(self.__fields) > 0):
       # Update offset of all elements
       keys = list(self.__fields)
-      adjust_offset = self.__fields[keys[0]]['offset']
-      for _, field in self.__fields.items():
-        field['offset'] -= adjust_offset
+      adjust_offset = self.__fields[keys[0]].offset
+      for name, field in self.__fields.items():
+        f = _StructField(field.type, field.length, field.same_level, field.offset - adjust_offset)
+        self.__fields[name] = f
 
   def _element_names(self):
     """ Get a list of all element names (in correct order)
@@ -611,13 +615,24 @@ class StructDef(BaseDef):
     """
     result = []
     for name, field in self.__fields.items():
-      if field['same_level']:
+      if field.same_level:
         for subname, parent_name in self.__fields_same_level.items():
           if name == parent_name:
             result.append(subname)
       else:
         result.append(name)
     return result
+
+  def _field(self, name):
+    """ Returns the description of one filed.
+
+    :param name: Name of the field.
+    :type name: str
+    :return: A field metadata
+    :rtype: _StructField
+    """
+    field = self.__fields.get(name)
+    return field
 
   def _element_type(self, name):
     """ Returns the type of element. 
@@ -628,7 +643,7 @@ class StructDef(BaseDef):
     :rtype: pycstruct class
     """
     if name in self.__fields:
-      return self.__fields[name]['type']
+      return self.__fields[name].type
     return None
 
   def _element_offset(self, name):
@@ -638,7 +653,7 @@ class StructDef(BaseDef):
     :rtype: int
     """
     if name in self.__fields:
-      return self.__fields[name]['offset']
+      return self.__fields[name].offset
     raise Exception('Invalid element {}'.format(name))
 
   def _element_length(self, name):
@@ -648,7 +663,7 @@ class StructDef(BaseDef):
     :rtype: int
     """
     if name in self.__fields:
-      return self.__fields[name]['length']
+      return self.__fields[name].length
     return 1
 
 ###############################################################################
