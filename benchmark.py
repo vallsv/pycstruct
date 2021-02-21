@@ -2,7 +2,6 @@ import timeit
 import pycstruct
 import numpy
 import pprint
-from matplotlib import pyplot
 
 
 c_code = """
@@ -70,8 +69,8 @@ def to_dtype(struct) -> numpy.dtype:
 
         offset = 0
         for name, field in struct._StructDef__fields.items():
-            datatype = field["type"]
-            length = field["length"]
+            datatype = field.type
+            length = field.length
 
             if struct._StructDef__union:
                 raise NotImplementedError("Union with dtype not implemented")
@@ -156,23 +155,27 @@ class TestPycstructNumpy:
 
 
 testcases = [TestPycstructDict, TestPycstructInst, TestPycstructNumpy]
+#testcases = [TestPycstructInst]
+
 
 def collect_data(testcases):
     result = {}
     for testcase in testcases:
         test = testcase()
         v = timeit.repeat(test.deserialize, number=1, repeat=10)
-        result[f"{testcase.name}_deserialize"] = numpy.median(v)
+        result[f"{testcase.name}_deserialize"] = numpy.min(v)
         result[f"{testcase.name}_read"] = []
 
         for i in range(16):
             test = testcase(nb=i)
             test.deserialize()
             v = timeit.repeat(test.read, number=1, repeat=30)
-            result[f"{testcase.name}_read"].append(numpy.median(v))
+            result[f"{testcase.name}_read"].append(numpy.min(v))
     return result
 
 def plot_result(result, testcases):
+    from matplotlib import pyplot
+
     ax = pyplot.subplot(1, 1, 1)
     ax.set_ylabel("time")
     ax.set_xlabel("Percent of the structure read")
