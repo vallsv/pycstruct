@@ -98,6 +98,12 @@ class _BaseDef:
     def _type_name(self):
         raise NotImplementedError
 
+    def __getitem__(self, length):
+        """Create an array type from a base type"""
+        if not isinstance(length, int):
+            raise TypeError("An integer is expected for an length of array")
+        return ArrayDef(self, length)
+
     def dtype(self):
         """Returns the numpy dtype of this definition"""
         raise Exception("dtype not implemented for %s" % type(self))

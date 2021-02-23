@@ -22,6 +22,13 @@ class MyStruct(declarative.Struct):
     color: MyColor
 
 
+class MyStructOfArrayOfColors(declarative.Struct):
+    BYTEORDER = "little"
+    PACK = 1
+
+    colors: MyColor[10]
+
+
 class TestDeclarative(unittest.TestCase):
     def test_type(self):
         self.assertIsInstance(MyStruct, pycstruct.StructDef)
@@ -38,3 +45,9 @@ class TestDeclarative(unittest.TestCase):
         raw = b"\x00\x00\x00\x00\x00\x01\x02\x03\x04"
         compound = MyStruct.instance(raw)
         self.assertEqual(compound.color.a, 4)
+
+    def test_array(self):
+        raw = (b"\x10\x20\x30\x00" * 9) + b"\x40\x50\x60\x00"
+        struct = MyStructOfArrayOfColors.instance(raw)
+        self.assertEqual(struct.colors[0].r, 0x10)
+        self.assertEqual(struct.colors[9].r, 0x40)
