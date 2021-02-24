@@ -70,3 +70,27 @@ class TestDeclarative(unittest.TestCase):
 
             class EnumWithWrongValue(declarative.Enum):
                 red = "red"
+
+    def test_valid_bitfield(self):
+        class BitfieldColor(declarative.Bitfield):
+            BYTEORDER = "little"
+            r: 4
+            g: 4
+            b: 4
+            a: 4
+
+        class Shape(declarative.Struct):
+            background: BitfieldColor
+
+        raw = bytes([0b10011001, 0b10011001])
+        e = Shape.instance(raw)
+        self.assertEqual(e.background.r, 9)
+        self.assertEqual(e.background.g, 9)
+        self.assertEqual(e.background.b, 9)
+        self.assertEqual(e.background.a, 9)
+
+    def test_invalid_bitfield(self):
+        with self.assertRaises(TypeError):
+
+            class BitfieldWithWrongValue(declarative.Bitfield):
+                red: str

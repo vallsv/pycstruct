@@ -38,3 +38,24 @@ class EnumMeta(type):
 
 class Enum(metaclass=EnumMeta):
     _ROOT = True
+
+
+class BitfieldMeta(type):
+    def __new__(cls, typename, bases, ns):
+        if ns.get("_ROOT", False):
+            return super().__new__(cls, typename, bases, ns)
+        types = ns.get("__annotations__", {})
+        byteorder = ns.get("BYTEORDER", "native")
+        size = ns.get("SIZE", -1)
+
+        cbitfield = pycstruct.BitfieldDef(byteorder=byteorder, size=size)
+        for name, size in types.items():
+            if not isinstance(size, int):
+                raise TypeError("Bitfield only support integer for sizes")
+            cbitfield.add(name, size)
+
+        return cbitfield
+
+
+class Bitfield(metaclass=BitfieldMeta):
+    _ROOT = True
