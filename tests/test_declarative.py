@@ -51,3 +51,22 @@ class TestDeclarative(unittest.TestCase):
         struct = MyStructOfArrayOfColors.instance(raw)
         self.assertEqual(struct.colors[0].r, 0x10)
         self.assertEqual(struct.colors[9].r, 0x40)
+
+    def test_valid_enum(self):
+        class EnumColor(declarative.Enum):
+            red = 0
+            green = 1
+            blue = 2
+
+        class Shape(declarative.Struct):
+            background: EnumColor
+
+        raw = b"\x01"
+        e = Shape.instance(raw)
+        self.assertEqual(e.background, "green")
+
+    def test_invalid_enum(self):
+        with self.assertRaises(TypeError):
+
+            class EnumWithWrongValue(declarative.Enum):
+                red = "red"

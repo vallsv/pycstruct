@@ -18,3 +18,23 @@ class StructMeta(type):
 
 class Struct(metaclass=StructMeta):
     _ROOT = True
+
+
+class EnumMeta(type):
+    def __new__(cls, typename, bases, ns):
+        if ns.get("_ROOT", False):
+            return super().__new__(cls, typename, bases, ns)
+
+        cenum = pycstruct.EnumDef()
+        for name, value in ns.items():
+            if name.startswith("__"):
+                continue
+            if not isinstance(value, int):
+                raise TypeError("Only integer are supported for enums")
+            cenum.add(name, value)
+
+        return cenum
+
+
+class Enum(metaclass=EnumMeta):
+    _ROOT = True
