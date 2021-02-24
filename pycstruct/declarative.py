@@ -1,6 +1,14 @@
 from pycstruct import pycstruct
 
 
+class _StringType:
+    def __getitem__(self, length):
+        return pycstruct.StringDef(length)
+
+
+Utf8 = _StringType()
+
+
 class StructMeta(type):
     def __new__(cls, typename, bases, ns):
         if ns.get("_ROOT", False):

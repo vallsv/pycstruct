@@ -94,3 +94,13 @@ class TestDeclarative(unittest.TestCase):
 
             class BitfieldWithWrongValue(declarative.Bitfield):
                 red: str
+
+    def test_string(self):
+        class Person(declarative.Struct):
+            lastname: declarative.Utf8[8]
+            firstname: declarative.Utf8[8]
+
+        raw = b"Jean-ClaVan Damm"
+        e = Person.instance(raw)
+        self.assertEqual(e.lastname, "Jean-Cla")
+        self.assertEqual(e.firstname, "Van Damm")
